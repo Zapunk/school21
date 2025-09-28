@@ -1,0 +1,15 @@
+services:
+  my_container:
+    build: .
+    container_name: my_container
+
+  nginx_proxy:
+    image: nginx:stable
+    container_name: proxy_container
+    volumes:
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/proxy.conf
+    ports:
+      - "80:8080"
+    depends_on:
+      - my_container
+    
