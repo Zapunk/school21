@@ -38,12 +38,13 @@ CMD ["./wait-for-it.sh", "-t", "40", "db:5432", "--",\
 ![3](img/3.png)
 
 В докер-компос:
-- прописываю сервисы. 
-- прокидываю порты  наружу `например "8083:8083"`. 
-- Прописываю сеть `app-network`, чтоб сервисы могли подключаться к ней и обращаться друк к другу по имени хоста `например db:5432`. 
-- прописываю переменные окружения. 
-- В 'db' прописал том, что бы .sql-файлы выполнились автоматически и хранились локально.
-- Прописываю 'restart' что бы контейнер автоматически перезапускался, если упадет. 
+
+- прописываю сервисы.
+- прокидываю порты  наружу `например "8083:8083"`.
+- Прописываю сеть `app-network`, чтоб сервисы могли подключаться к ней и обращаться друк к другу по имени хоста `например db:5432`.
+- прописываю переменные окружения.
+- В 'db' прописал том, что бы .sql-файл выполнился автоматически и хранился локально.
+- Прописываю 'restart' что бы контейнер автоматически перезапускался, если упадет.
 
 ```yaml
 services:
@@ -221,7 +222,7 @@ volumes:
   db_data:
 ```
 
-Собираем и разворачиваем веб-сервис с помощью Docker Compose 
+Собираем и разворачиваем веб-сервис с помощью Docker Compose
 
 ![2](img/2.png)
 
@@ -231,3 +232,225 @@ volumes:
 
 ## Part 2. Создание виртуальных машин
 
+Устанавливаем Vagrant с помощью `brew tap hashicorp/tap` и `brew install hashicorp/tap/hashicorp-vagrant`
+
+Проверяем что все установилось `vagrant --version`
+
+![5](img/5.png)
+
+Инициализируем Vagrantfile в корень проекта
+
+![6](img/6.png)
+
+Поскольку в задании сказано '...Напиши Vagrantfile для одной виртуальной машины. Перенеси исходный код веб-сервиса в рабочую директорию виртуальной машины.', то за основу возьмем станданртный Vagrantfile, а для переноса файлов внуть ВМ использую синхронизированную папку
+
+![7](img/7.png)
+
+На скриншоте видно что исходный код перенесен в рабочую папку ВМ
+
+![8](img/8.png)
+
+Остановка ВМ осуществляется с помощью `vagrant halt`, а полное уничтожение с помощью `vagrant destroy -f` (f - использую для принудительного удаления без подтверждения)
+
+## Part 3. Создание простейшего Docker Swarm
+
+В настройках 'VirtualBox' проверяем доступный диапазон сетей
+
+![9](img/9.png)
+
+Для скрипта по установке Docker, берем команды с сайта докера и копируем в наш скрипт
+
+```shell
+sudo apt-get update -y
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+sudo chmod 755 /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker vagrant
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo -u vagrant docker --version
+```
+
+Пишем скрипт для инициализации Swarm на менеджере
+
+![10](img/10.png)
+
+Пишем скрипт для подключения воркеров к менеджеру
+
+![11](img/11.png)
+
+Изменяем 'Vagrantfile' для создания 3-х машин
+
+```shell
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+    config.vm.synced_folder ".", "/vagrant"
+  
+  config.vm.define "manager01" do |manager|
+    manager.vm.hostname = "manager01"
+    manager.vm.network "private_network", ip: "192.168.56.10"
+
+    manager.vm.provision "shell", path: "./install-docker.sh"
+    manager.vm.provision "shell", path: "./manager_swarm.sh"
+  end
+  
+  config.vm.define "worker01" do |worker|
+    worker.vm.hostname = "worker01"
+    worker.vm.network "private_network", ip: "192.168.56.11"
+
+    worker.vm.provision "shell", path: "./install-docker.sh"
+    worker.vm.provision "shell", path: "./worker_swarm.sh"
+  end
+
+  config.vm.define "worker02" do |worker|
+    worker.vm.hostname = "worker02"
+    worker.vm.network "private_network", ip: "192.168.56.12"
+
+    worker.vm.provision "shell", path: "./install-docker.sh"
+    worker.vm.provision "shell", path: "./worker_swarm.sh"
+  end
+end
+```
+
+Запускаем Vagranеt с помощью команды `vagrant up` затем входим в ВМ с помощью команды `vagrant ssh manager01` и видим что Docker swarm активен и воркеры подключились. 
+
+![12](img/12.png)
+
+Выгрузка докер образов: первым делом тегируем образы; затем выгружаем образы. 
+
+На скрине пример с брокером, на остальных образах опирация аналогичная. 
+
+![13](img/13.png)
+
+Поскольку у меня в Vagrantfile смонтирована общая папка для хостовой и гостевой машины, то проект и все файлы уже в ВМ. Для ускорения процессов и уменьшения нагрузки на ресурсы, переносим проект из общей папки во внутреннюю папку ВМ, для этого используем скрипт 
+
+```shell
+      mkdir -p /home/vagrant/project
+      cp -r /vagrant/* /home/vagrant/project/
+```
+
+Запускаем стек сервисов внутри ВМ из папки `/home/vagrant/project/`
+
+![14](img/14.png)
+
+Как видим все работает
+
+![15](img/15.png)
+
+Настраиваю прокси на базе nginx для доступа к gateway service и session service по оверлейной сети. Сами gateway service и session service делаю недоступными напрямую.
+
+  - конфигурация nginx
+```shell
+upstream gateway {
+    server gateway-service:8087;
+}
+
+upstream session {
+    server session-service:8081;
+}
+
+server {
+    listen 80;
+
+    location /gateway/ {
+        proxy_pass http://gateway/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /session/ {
+        proxy_pass http://session/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+  - в docker compose прописываю сервис nginx и меняю ports на expose для gateway и session 
+
+```shell
+session-service:
+...
+  expose:
+      - "8081"
+...
+
+gateway-service:
+...
+  expose:
+      - "8087"
+...
+
+nginx:
+    restart: unless-stopped
+    image: nginx:1.25.5-alpine
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - session-service
+      - gateway-service
+```
+
+Пересобираем сервис с помощью `docker compose up -d` и видим что с хостовой машины мы можем обращаться в gateway и session
+
+![16](img/16.png)
+
+А напрямую с ВМ нет
+
+![17](img/17.png)
+
+Прогоняем тесты в postman(тесты postman наcтроены на проверку только по localhost. Поэтому по overlay network тесты не проходят, останавливаем ВМ, запускаем на хосте и все проходит)
+
+![18](img/18.png)
+
+Возвращаемся в ВМ. Запускаем стек с помощью `docker stack deploy -c docker-compose.yml my_project` и про помощи команды `docker stack ps my_project` выводим информацию о распределении сервисов по узлам. 
+
+![19](img/19.png)
+
+Ставим Portainer внутрь нашего Docker Swarm. Создаем файл portainer.yml
+
+```shell
+version: "3.8"
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+volumes:
+  portainer_data:
+```
+
+Запускаем и проверяем что все запустилось
+
+![20](img/20.png)
+
+Открываем браузер на хосте по адресу `192.168.56.10:9000` и регистрируемся в Portainer
+
+Можем управлять контейнерами
+
+![21](img/21.png)
+
+Открываем визуализацию по узлам
+
+![22](img/22.png)
