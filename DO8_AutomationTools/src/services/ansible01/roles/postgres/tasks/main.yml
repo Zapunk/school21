@@ -1,0 +1,31 @@
+- name: Установить PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Запустить PostgreSQL
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Копировать SQL-скрипт
+  copy:
+    src: init.sql
+    dest: /tmp/init.sql
+    mode: '0644'
+
+- name: Создать базу данных db_01
+  shell: |
+    sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='db_01'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE DATABASE db_01"
+  args:
+    executable: /bin/bash
+
+- name: Создать таблицу и вставить данные
+  shell: sudo -u postgres psql -d db_01 -f /tmp/init.sql
+  args:
+    chdir: /tmp
