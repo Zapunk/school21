@@ -1,3 +1,16 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:e78482ebcbd793dfee7095b0b8514a4d016daab0288d1ec00e1a2bca7dc545ff
-size 479
+FROM maven:3.8.8-eclipse-temurin-8 AS builder
+WORKDIR /app
+COPY .mvn/ .mvn/
+COPY pom.xml .
+RUN rm -rf /root/.m2/repository
+RUN mvn dependency:resolve dependency:resolve-plugins
+COPY src ./src
+RUN mvn -B package -DskipTests
+
+FROM eclipse-temurin:8-jre-alpine
+WORKDIR /app
+RUN apk add --no-cache bash
+COPY --from=builder /app/target/*.jar ./app.jar
+COPY wait-for-it.sh .
+RUN chmod +x wait-for-it.sh
+CMD ["./wait-for-it.sh", "-t", "40", "db:5432", "--", "java", "-jar", "./app.jar"]
