@@ -1,0 +1,141 @@
+- name: Проверка Consul
+  stat:
+    path: /usr/local/bin/consul
+  register: consul_check
+
+- name: Скопировать скрипт установки Consul
+  copy:
+    src: ../files/install_consul.sh
+    dest: /tmp/install_consul.sh
+    mode: '0755'
+  when: not consul_check.stat.exists
+
+- name: Установка Consul
+  shell: /tmp/install_consul.sh
+  args:
+    chdir: /tmp
+  when: not consul_check.stat.exists
+
+- name: Создать директорию /etc/consul.d
+  file:
+    path: /etc/consul.d
+    state: directory
+    mode: '0755'
+
+- name: Скопировать конфиг
+  template:
+    src: "{{ playbook_dir }}/../consul01/consul_client.hcl"
+    dest: /etc/consul.d/consul.hcl
+    mode: '0644'
+
+# =======================================
+
+- name: Создать hotel.hcl для API
+  copy:
+    dest: /etc/consul.d/hotel.hcl
+    mode: "0644"
+    content: |
+      service {
+        name = "api"
+        id   = "api"
+        port = 8082
+        connect {
+          sidecar_service {
+            proxy {
+              upstreams = [
+                {
+                  destination_name = "db"
+                  local_bind_port  = 5432
+                }
+              ]
+            }
+          }
+        }
+      }
+  when: inventory_hostname == "api"
+
+- name: Создать database.hcl для DB
+  copy:
+    dest: /etc/consul.d/database.hcl
+    mode: "0644"
+    content: |
+      service {
+        name = "db"
+        id   = "db"
+        port = 5432
+        connect {
+          sidecar_service {}
+        }
+      }
+  when: inventory_hostname == "db"
+
+# ======================================
+
+- name: Создать systemd unit
+  copy:
+    dest: /etc/systemd/system/consul.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Consul Client
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=root
+      Group=root
+      ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Перезагрузить systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Перезапустить consul
+  systemd:
+    name: consul
+    enabled: yes
+    state: restarted
+
+# =============================================
+
+- name: Скачать Envoy
+  get_url:
+    url: "https://github.com/envoyproxy/envoy/releases/download/v1.33.11/envoy-1.33.11-linux-x86_64"
+    dest: /usr/local/bin/envoy
+    mode: '0755'
+
+- name: Создание consul-envoy systemd service
+  copy:
+    dest: /etc/systemd/system/consul-envoy.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Consul Envoy Sidecar
+      After=consul.service
+      Requires=consul.service
+
+      [Service]
+      ExecStart=/usr/local/bin/consul connect envoy -sidecar-for "{{ inventory_hostname }}"
+      Restart=always
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+      
+- name: Перезагрузить systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Подождать 10 секунд, чтобы Consul зарегистрировал сервис
+  pause:
+    seconds: 10
+
+- name: Перезапустить consul-envoy
+  systemd:
+    name: consul-envoy
+    state: started
+    enabled: yes

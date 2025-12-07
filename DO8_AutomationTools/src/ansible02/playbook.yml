@@ -1,0 +1,26 @@
+- hosts: consulserver
+  become: true
+  roles:
+    - install_consul_server
+  tags: consulserver
+
+- hosts: db
+  become: true
+  roles:
+    - install_db
+    - install_consul_client
+  tags: db
+  
+- hosts: api
+  become: true
+  vars:
+    postgres_host: "127.0.0.1"
+    postgres_port: "5432"
+    postgres_db: "hotels_db"
+    postgres_user: "postgres"
+    postgres_password: "postgres"
+  roles:
+    - install_consul_client
+    - install_hotels_service
+  tags: api
+

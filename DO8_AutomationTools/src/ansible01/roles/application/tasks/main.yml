@@ -1,0 +1,49 @@
+- name: Скопировать скрипт установки Docker
+  copy:
+    src: "{{ playbook_dir }}/files/install_docker.sh"
+    dest: /tmp/install_docker.sh
+    mode: '0755'
+
+- name: Установить Docker
+  shell: /tmp/install_docker.sh
+  args:
+    creates: /usr/bin/docker
+
+- name: Создать каталог проекта
+  file:
+    path: /project/services/ansible/files
+    state: directory
+    mode: '0755'
+
+- name: Создать директорию для базы данных
+  file:
+    path: /project/services/ansible/files/database
+    state: directory
+    mode: '0755'
+
+- name: Скопировать docker-compose.yml
+  copy:
+    src: "{{ playbook_dir }}/files/docker-compose.yml"
+    dest: /project/services/ansible/files/docker-compose.yml
+    mode: '0644'
+
+- name: Скопировать init.sql
+  copy:
+    src: "{{ playbook_dir }}/files/database/init.sql"
+    dest: /project/services/ansible/files/database/init.sql
+    mode: '0644'
+
+- name: Deploy
+  shell: |
+    cd /project/services/ansible/files
+    docker compose up -d
+  args:
+    chdir: /project/services/ansible/files
+
+- name: Статус контейнеров
+  shell: docker ps
+  register: docker_ps
+
+- name: Вывести статус контейнеров
+  debug:
+    var: docker_ps.stdout_lines

@@ -1,0 +1,37 @@
+- name: Установить PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Запустить PostgreSQL
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Подождать пока PostgreSQL поднимется
+  wait_for:
+    host: "127.0.0.1"
+    port: 5432
+    delay: 2
+    timeout: 30
+    
+- name: Установить пароль для пользователя postgres
+  shell: |
+    sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+  args:
+    executable: /bin/bash
+
+- name: Копировать SQL-скрипт
+  copy:
+    src: ../files/init.sql
+    dest: /tmp/init.sql
+    mode: '0644'
+
+- name: Выполнение init.sql
+  shell: sudo -u postgres psql -d postgres -f /tmp/init.sql
+  args:
+    executable: /bin/bash

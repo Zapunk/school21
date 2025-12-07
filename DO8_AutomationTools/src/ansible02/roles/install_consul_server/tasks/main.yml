@@ -1,0 +1,59 @@
+- name: Проверка Consul
+  stat:
+    path: /usr/local/bin/consul
+  register: consul_check
+
+- name: Скопировать скрипт установки Consul
+  copy:
+    src: install_consul.sh
+    dest: /tmp/install_consul.sh
+    mode: '0755'
+  when: not consul_check.stat.exists
+
+- name: Установка Consul
+  shell: /tmp/install_consul.sh
+  args:
+    chdir: /tmp
+  when: not consul_check.stat.exists
+
+- name: Создать директорию для данных
+  file:
+    path: /opt/consul
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Скопировать конфиг
+  copy:
+    src: "{{ playbook_dir }}/../consul01/consul_server.hcl"
+    dest: /etc/consul.hcl
+    mode: '0644'
+
+- name: Создать systemd unit
+  copy:
+    dest: /etc/systemd/system/consul.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Consul Server
+      After=network-online.target
+
+      [Service]
+      User=root
+      Group=root
+      ExecStart=/usr/local/bin/consul agent -config-file=/etc/consul.hcl
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Перезагрузить systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Перезапустить consul
+  systemd:
+    name: consul
+    enabled: yes
+    state: restarted

@@ -1,0 +1,59 @@
+- name: Установка openjdk
+  apt:
+    name: openjdk-8-jdk
+    state: present
+    update_cache: yes
+
+- name: Копирование сервиса hotel
+  copy:
+    src: ../files/hotel-service/
+    dest: /opt/hotel-service/
+
+- name: Подготовка к сборке
+  file:
+    path: /opt/hotel-service/mvnw
+    mode: '0755'
+
+- name: Сборка hotel-service
+  shell: ./mvnw clean package -DskipTests
+  args:
+    chdir: /opt/hotel-service/
+
+- name: Установка environment
+  copy:
+    dest: /etc/hotel_env.conf
+    mode: '0644'
+    content: |
+      POSTGRES_HOST="{{ postgres_host }}"
+      POSTGRES_PORT="{{ postgres_port }}"
+      POSTGRES_DB="{{ postgres_db }}"
+      POSTGRES_USER="{{ postgres_user }}"
+      POSTGRES_PASSWORD="{{ postgres_password }}"
+
+- name: Запуск сервиса simple systemd
+  copy:
+    dest: /etc/systemd/system/hotel.service
+    content: |
+      [Unit]
+      Description=Hotel Service
+      After=network.target
+
+      [Service]
+      User=root
+      Group=root
+      EnvironmentFile=-/etc/hotel_env.conf
+      ExecStart=/usr/bin/java -jar /opt/hotel-service/target/hotel-service-0.0.1-SNAPSHOT.jar
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Перезагрузить systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Запуск hotel_service
+  systemd:
+    name: hotel
+    enabled: yes
+    state: restarted
