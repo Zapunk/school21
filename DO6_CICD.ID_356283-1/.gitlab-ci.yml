@@ -1,0 +1,49 @@
+stages:
+  - build
+  - style
+  - test
+  - deploy
+
+build-job:
+  stage: build
+  script:
+    - cd code-samples/
+    - make
+  artifacts:
+    paths:
+      - code-samples/DO
+    expire_in: 30 days
+  after_script:
+      - chmod +x src/tgbot.sh
+      - ./src/tgbot.sh "Сборка прошла успешно"
+
+style-job:
+  stage: style
+  script:
+    - cd code-samples/
+    - clang-format -n --Werror --style=Google *.c
+    - for file in *.c; do clang-format --style=Google "$file" | diff -u "$file" - || true; done
+  after_script:
+      - chmod +x src/tgbot.sh
+      - ./src/tgbot.sh "Проверка стиля прошла успешно"
+
+test-job:
+  stage: test
+  script:
+    - chmod +x src/test.sh
+    - ./src/test.sh
+  needs: ["build-job", "style-job"]
+  after_script:
+      - chmod +x src/tgbot.sh
+      - ./src/tgbot.sh "Тесты прошли успешно"
+
+deploy-job:
+  stage: deploy
+  script:
+    - chmod +x src/deploy.sh
+    - ./src/deploy.sh
+  needs: ["build-job", "test-job"]
+  when: manual
+  after_script:
+      - chmod +x src/tgbot.sh
+      - ./src/tgbot.sh "Развертка прошла успешно"
