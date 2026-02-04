@@ -1,0 +1,36 @@
+groups:
+- name: critical-resources
+  rules:
+
+  # 1. Доступная память < 100 MB
+  - alert: LowAvailableMemory
+    expr: node_memory_MemAvailable_bytes < 104857600
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Мало доступной памяти {{ $labels.instance }}"
+      description: "Доступная память меньше 100 MB"
+
+  # 2. Используемая RAM > 1 GB
+  - alert: HighRAMUsage
+    expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) > 1073741824
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Высокое потребление RAM {{ $labels.instance }}"
+      description: "Затраченая RAM больше 1 GB"
+
+  # 3. CPU usage per service > 10%
+  - alert: HighServiceCPU
+    expr: |
+      sum by (container, com_docker_swarm_service_name) (
+        rate(container_cpu_usage_seconds_total{container!=""}[1m])
+      ) * 100 > 10
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Высокое использование CPU {{ $labels.com_docker_swarm_service_name }}"
+      description: "Использование CPU превышает 10%"
