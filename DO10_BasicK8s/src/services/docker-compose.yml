@@ -1,0 +1,175 @@
+services:
+  rabbitmq:
+    image: zapunk1/s21-rabbitmq:spectrav
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+
+  db:
+    image: zapunk1/s21-postgres:spectrav
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/postgresql/data
+    
+  booking-service:
+    restart: unless-stopped
+    image: zapunk1/s21-booking:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8083:8083"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reservations_db
+      RABBIT_MQ_HOST: rabbitmq
+      RABBIT_MQ_PORT: 5672
+      RABBIT_MQ_USER: guest
+      RABBIT_MQ_PASSWORD: guest
+      RABBIT_MQ_QUEUE_NAME: messagequeue
+      RABBIT_MQ_EXCHANGE: messagequeue-exchange
+      HOTEL_SERVICE_HOST: hotel-service
+      HOTEL_SERVICE_PORT: 8082
+      PAYMENT_SERVICE_HOST: payment-service
+      PAYMENT_SERVICE_PORT: 8084
+      LOYALTY_SERVICE_HOST: loyalty-service
+      LOYALTY_SERVICE_PORT: 8085
+    depends_on:
+      - db
+      - rabbitmq
+
+  session-service:
+    restart: unless-stopped
+    image: zapunk1/s21-session:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8081:8081"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: users_db
+    depends_on:
+      - db
+
+  hotel-service:
+    restart: unless-stopped
+    image: zapunk1/s21-hotel:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8082:8082"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hotels_db
+    depends_on:
+      - db
+
+  payment-service:
+    restart: unless-stopped
+    image: zapunk1/s21-payment:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8084:8084"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payments_db
+    depends_on:
+      - db
+
+  loyalty-service:
+    restart: unless-stopped
+    image: zapunk1/s21-loyalty:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8085:8085"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: balances_db
+    depends_on:
+      - db
+
+  report-service:
+    restart: unless-stopped
+    image: zapunk1/s21-report:spectrav
+    networks:
+      - app-network
+    ports:
+      - "8086:8086"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: statistics_db
+      RABBIT_MQ_HOST: rabbitmq
+      RABBIT_MQ_PORT: 5672
+      RABBIT_MQ_USER: guest
+      RABBIT_MQ_PASSWORD: guest
+      RABBIT_MQ_QUEUE_NAME: messagequeue
+      RABBIT_MQ_EXCHANGE: messagequeue-exchange
+    depends_on:
+      - db
+      - rabbitmq
+
+  gateway-service:
+    restart: unless-stopped
+    image: zapunk1/s21-gateway:spectrav
+    ports:
+      - "8087:8087"
+    networks:
+      - app-network
+    environment:
+      SESSION_SERVICE_HOST: session-service
+      SESSION_SERVICE_PORT: 8081
+      HOTEL_SERVICE_HOST: hotel-service
+      HOTEL_SERVICE_PORT: 8082
+      BOOKING_SERVICE_HOST: booking-service
+      BOOKING_SERVICE_PORT: 8083
+      PAYMENT_SERVICE_HOST: payment-service
+      PAYMENT_SERVICE_PORT: 8084
+      LOYALTY_SERVICE_HOST: loyalty-service
+      LOYALTY_SERVICE_PORT: 8085
+      REPORT_SERVICE_HOST: report-service
+      REPORT_SERVICE_PORT: 8086
+    depends_on:
+      - booking-service
+      - hotel-service
+      - session-service
+      - payment-service
+      - loyalty-service
+      - report-service
+
+networks:
+  app-network:
+    external: true
+
+volumes:
+  db-data:

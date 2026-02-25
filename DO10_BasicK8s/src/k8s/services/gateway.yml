@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+    spec:
+      containers:
+        - name: gateway-service
+          image: zapunk1/s21-gateway:v2
+          ports:
+            - containerPort: 8087
+          envFrom:
+            - configMapRef:
+                name: my-config
+            - secretRef:
+                name: my-secrets
+            
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+spec:
+  selector:
+    app: gateway-service
+  ports:
+    - port: 8087
+      targetPort: 8087

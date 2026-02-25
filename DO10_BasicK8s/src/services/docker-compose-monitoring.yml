@@ -1,0 +1,137 @@
+version: "3.8"
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    networks:
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  loki:
+    image: grafana/loki:2.9.4
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/loki-config.yml
+      - loki-data:/loki
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    user: root
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - app-network
+    deploy:
+      mode: global
+
+  node_exporter:
+    image: prom/node-exporter:v1.7.0
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    networks:
+      - app-network
+    deploy:
+      mode: global
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    ports:
+      - "8080:8080"
+    command:
+      - '--docker_only=true'
+      - '--store_container_labels=true'
+      - '--whitelisted_container_labels=com.docker.stack.namespace,com.docker.swarm.service.name,com.docker.swarm.task.name'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - app-network
+    deploy:
+      mode: global
+
+  blackbox_exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./monitoring/blackbox.yml:/etc/blackbox/blackbox.yml
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    command:
+      - "--config.file=/etc/blackbox/blackbox.yml"
+    networks:
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  app-network:
+    external: true
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
