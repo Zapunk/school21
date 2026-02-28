@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.iov1beta1
+kind: Kustomization
+
+resources:
+  - booking.yml
+  - gateway.yml
+  - hotel.yml
+  - loyalty.yml
+  - payment.yml
+  - report.yml
+  - session.yml

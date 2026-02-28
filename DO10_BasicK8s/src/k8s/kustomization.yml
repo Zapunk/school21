@@ -7,10 +7,4 @@ resources:
   - postgres-initdb.yml
   - rabbitmq.yml
   - secrets.yml
-  - services/booking.yml
-  - services/gateway.yml
-  - services/hotel.yml
-  - services/loyalty.yml
-  - services/payment.yml
-  - services/report.yml
-  - services/session.yml
+  - services/
