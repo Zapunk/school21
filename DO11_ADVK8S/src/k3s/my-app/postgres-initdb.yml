@@ -23,3 +23,5 @@ data:
 
     DROP DATABASE IF EXISTS statistics_db;
     CREATE DATABASE statistics_db OWNER postgres;
+
+    

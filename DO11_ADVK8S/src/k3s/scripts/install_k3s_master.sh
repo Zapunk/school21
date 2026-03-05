@@ -7,7 +7,16 @@ echo "Установка curl"
 apt-get install -y curl
 echo "Установка K3s"
 curl -sfL https://get.k3s.io | \
-INSTALL_K3S_EXEC="--node-ip=192.168.56.10 --advertise-address=192.168.56.10 --disable traefik --write-kubeconfig-mode=644" sh -
+INSTALL_K3S_EXEC="server \
+  --node-ip=192.168.56.10 \
+  --advertise-address=192.168.56.10 \
+  --cluster-cidr=10.42.0.0/16 \
+  --service-cidr=10.43.0.0/16 \
+  --disable traefik \
+  --flannel-iface=eth1 \
+  --write-kubeconfig-mode=644" \
+sh -
+
 echo "Ждем 30 сек"
 sleep 30
 echo "Проверка запуска k3s"

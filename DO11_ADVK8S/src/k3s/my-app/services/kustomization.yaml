@@ -2,10 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - booking.yml
-  - gateway.yml
-  - hotel.yml
-  - loyalty.yml
-  - payment.yml
-  - report.yml
   - session.yml
+  - hotel.yml
+  - booking.yml
+  - payment.yml
+  - loyalty.yml
+  - report.yml
+  - gateway.yml

@@ -12,6 +12,8 @@ spec:
       labels:
         app: postgres
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker2
       containers:
         - name: postgres
           image: zapunk1/s21-postgres:spectrav
@@ -39,7 +41,8 @@ spec:
 
       volumes:
         - name: postgres-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: postgres-pvc
         - name: initdb
           configMap:
             name: postgres-initdb  

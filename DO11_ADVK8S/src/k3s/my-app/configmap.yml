@@ -6,6 +6,8 @@ data:
   POSTGRES_HOST: db
   POSTGRES_PORT: "5432"
 
+  SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
   RABBIT_MQ_HOST: rabbitmq
   RABBIT_MQ_PORT: "5672"
   RABBIT_MQ_QUEUE_NAME: messagequeue
