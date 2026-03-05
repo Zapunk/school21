@@ -12,9 +12,9 @@ RUN apk add --no-cache bash
 COPY --from=builder /app/target/*.jar ./app.jar
 COPY wait-for-it.sh .
 RUN chmod +x wait-for-it.sh
-CMD ["./wait-for-it.sh", "-t", "40", "db:5432", "--",\
-     "./wait-for-it.sh", "-t", "40", "payment-service:8084", "--",\
-     "./wait-for-it.sh", "-t", "40", "hotel-service:8082", "--",\
-     "./wait-for-it.sh", "-t", "40", "loyalty-service:8085", "--",\
-     "./wait-for-it.sh", "-t", "40", "rabbitmq:5672", "--",\
+CMD ["./wait-for-it.sh", "-t", "120", "db:5432", "--",\
+     "./wait-for-it.sh", "-t", "120", "payment-service:8084", "--",\
+     "./wait-for-it.sh", "-t", "120", "hotel-service:8082", "--",\
+     "./wait-for-it.sh", "-t", "120", "loyalty-service:8085", "--",\
+     "./wait-for-it.sh", "-t", "120", "rabbitmq:5672", "--",\
      "java", "-jar", "./app.jar"]    
