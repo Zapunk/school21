@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ./postgres/postgres-pv.yaml
+  - ./postgres/postgres-pvc.yaml
+  - ./postgres/postgres.yaml
+  - ./postgres/postgres-initdb.yaml
+  - ./rabbitmq/rabbitmq.yaml 
+
+  - ./app/booking-deployment.yaml
+  - ./app/booking-service.yaml
+  - ./app/gateway-deployment.yaml
+  - ./app/gateway-service.yaml
+  - ./app/hotel-deployment.yaml
+  - ./app/hotel-service.yaml
+  - ./app/loyalty-deployment.yaml
+  - ./app/loyalty-service.yaml
+  - ./app/payment-deployment.yaml
+  - ./app/payment-service.yaml
+  - ./app/report-deployment.yaml
+  - ./app/report-service.yaml
+  - ./app/session-deployment.yaml
+  - ./app/session-service.yaml
