@@ -1,0 +1,42 @@
+services:
+  session:
+    name: session-service
+    image: zapunk1/s21-session:v3
+    replicas: 1
+    port: 8081
+
+  hotel:
+    name: hotel-service
+    image: zapunk1/s21-hotel:v3
+    replicas: 1
+    port: 8082
+
+  booking:
+    name: booking-service
+    image: zapunk1/s21-booking:v3
+    replicas: 1
+    port: 8083
+
+  payment:
+    name: payment-service
+    image: zapunk1/s21-payment:v3
+    replicas: 1
+    port: 8084
+
+  loyalty:
+    name: loyalty-service
+    image: zapunk1/s21-loyalty:v3
+    replicas: 1
+    port: 8085
+
+  report:
+    name: report-service
+    image: zapunk1/s21-report:v3
+    replicas: 1
+    port: 8086
+
+  gateway:
+    name: gateway-service
+    image: zapunk1/s21-gateway:v3
+    replicas: 1
+    port: 8087

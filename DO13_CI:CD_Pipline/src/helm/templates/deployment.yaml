@@ -1,0 +1,27 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: {{ $svc.name }}
+spec:
+    replicas: {{ $svc.replicas }}
+    selector:
+        matchLabels:
+            app: {{ $svc.name }}
+    template:
+        metadata:
+            labels:
+                app: {{ $svc.name }}
+        spec:
+            containers:
+                - name: {{ $svc.name }}
+                  image: {{ $svc.image }}
+                  ports:
+                    - containerPort: {{ $svc.port }}
+                  envFrom:
+                    - configMapRef:
+                        name: {{ $.Release.Name }}-config
+                    - secretRef:
+                        name: {{ $.Release.Name }}-secrets
+{{- end }}
