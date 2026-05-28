@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-cert
+  namespace: default
+spec:
+  secretName: wildcard-tls
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  commonName: "*.192.168.56.12.nip.io"
+  dnsNames:
+  - "*.192.168.56.12.nip.io"

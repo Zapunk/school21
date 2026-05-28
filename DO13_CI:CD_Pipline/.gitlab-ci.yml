@@ -1,0 +1,78 @@
+stages:
+  - build
+  - deploy-test
+  - test
+  - cleanup
+  - staging
+
+variables:
+  KUBE_NAMESPACE: prod-$CI_COMMIT_SHORT_SHA
+  REGISTRY: k3d-spectrav-registry:5000
+
+build:
+  stage: build
+  image: $REGISTRY/my-image:2.0
+  services:
+    - name: docker:24-dind
+      command: ["--tls=false", "--insecure-registry=$REGISTRY"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - sleep 20
+    - cd src/services/gateway-service
+    - mvn clean package -DskipTests
+    - docker build -t $REGISTRY/s21-gateway:$CI_COMMIT_SHORT_SHA .
+    - docker push $REGISTRY/s21-gateway:$CI_COMMIT_SHORT_SHA
+  artifacts:
+    paths:
+    - src/services/gateway-service/target/*.jar
+  only:
+    - /^feature_.*$/
+
+deploy-test:
+  stage: deploy-test
+  image: $REGISTRY/my-image:1.0
+  script:
+    - kubectl create namespace $KUBE_NAMESPACE || true
+    - helm upgrade --install my-app ./src/helm --namespace $KUBE_NAMESPACE --set services.gateway.image=$REGISTRY/s21-gateway:$CI_COMMIT_SHORT_SHA
+    - kubectl rollout status deployment/gateway-service -n $KUBE_NAMESPACE
+    - sleep 100
+    - |
+      echo "Waiting for API..."
+      for i in {1..30}; do
+        if curl -s http://gateway-service.$KUBE_NAMESPACE.svc.cluster.local:8087/api/v1/gateway/hotels; then
+          break
+        fi
+        echo "Retry $i..."
+        sleep 5
+      done
+  only:
+    - /^feature_.*$/
+
+test:
+  stage: test
+  image: $REGISTRY/my-image:1.0
+  needs: ["deploy-test"]
+  script:
+    - newman run ./src/application_tests.postman_collection.json --env-var "API_HOST=http://ingress-nginx-controller.ingress-nginx.svc.cluster.local" --env-var "USERS_PORT=" --env-var "GATEWAY_PORT="
+  only:
+    - /^feature_.*$/
+
+cleanup:
+  stage: cleanup
+  image: $REGISTRY/my-image:1.0
+  script:
+    - kubectl delete namespace $KUBE_NAMESPACE || true
+  when: always
+  only:
+    - /^feature_.*$/
+
+staging:
+  stage: staging
+  image: $REGISTRY/my-image:1.0
+  script:
+    - helm upgrade --install my-app ./src/helm -n prod --create-namespace 
+  only:
+    - tags
+  when: manual

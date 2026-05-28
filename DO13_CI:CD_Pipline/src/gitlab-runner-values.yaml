@@ -1,0 +1,41 @@
+gitlabUrl: https://git.21-school.ru
+
+runnerRegistrationToken: GR1348941rgHkPXJu6Nix9beoESzj
+
+runners:
+  executor: kubernetes
+  serviceAccountName: gitlab-runner
+
+  config: |
+    [[runners]]
+      name = "kubernetes-runner"
+      executor = "kubernetes"
+
+      [runners.kubernetes]
+        namespace = "gitlab-runner"
+        service_account = "gitlab-runner"
+        image = "k3d-spectrav-registry:5000/my-image:1.0"
+
+        privileged = true
+        allow_privileged_escalation = true
+
+        cpu_request = "200m"
+        memory_request = "256Mi"
+
+        cpu_limit = "500m"
+        memory_limit = "512Mi"
+
+        poll_timeout = 600
+
+        [[runners.kubernetes.services]]
+          name = "docker:24-dind"
+          privileged = true
+          command = [
+            "--tls=false",
+            "--insecure-registry=k3d-spectrav-registry:5000"
+          ]
+
+rbac:
+  create: true
+  clusterWideAccess: true
+  
